@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR & QRIS Scanner</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .scanner-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        #video {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+            box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.3);
+            animation: scannerPulse 2s infinite;
+        }
+
+        @keyframes scannerPulse {
+            0%, 100% { border-color: #00ff88; }
+            50% { border-color: #00ccff; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .result-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+            display: none;
+        }
+
+        .result-title {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .result-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .qris-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: linear-gradient(45deg, #e8f5e8, #f0f8ff);
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+        }
+
+        .qris-field {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .qris-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .qris-value {
+            color: #666;
+            font-family: 'Courier New', monospace;
+        }
+
+        .file-input-container {
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            display: inline-block;
+        }
+
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button, .file-label {
+                width: 100%;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 QR & QRIS Scanner</h1>
+        <p class="subtitle">Scan QR Code dan QRIS dengan mudah</p>
+        
+        <div class="scanner-container" id="scannerContainer" style="display: none;">
+            <video id="video" playsinline></video>
+            <div class="scanner-overlay"></div>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="controls">
+            <button id="startBtn" onclick="startScanner()">📷 Mulai Scan</button>
+            <button id="stopBtn" onclick="stopScanner()" style="display: none;">⏹️ Berhenti</button>
+            <button id="switchBtn" onclick="switchCamera()" style="display: none;">🔄 Ganti Kamera</button>
+        </div>
+        
+        <div class="file-input-container">
+            <input type="file" id="fileInput" class="file-input" accept="image/*" onchange="scanFromFile(event)">
+            <label for="fileInput" class="file-label">📁 Upload Gambar QR</label>
+        </div>
+        
+        <div class="result-container" id="resultContainer">
+            <div class="result-title">
+                <span>📋 Hasil Scan:</span>
+            </div>
+            <div class="result-content" id="resultContent"></div>
+            <div id="qrisInfo" class="qris-info" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let scanner = null;
+        let currentCamera = 'environment';
+        let isScanning = false;
+
+        // Fungsi untuk menampilkan status
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Fungsi untuk menampilkan hasil
+        function showResult(result) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultContent = document.getElementById('resultContent');
+            const qrisInfo = document.getElementById('qrisInfo');
+            
+            resultContent.textContent = result;
+            resultContainer.style.display = 'block';
+            
+            // Cek apakah ini QRIS
+            if (isQRIS(result)) {
+                parseQRIS(result);
+            } else {
+                qrisInfo.style.display = 'none';
+            }
+        }
+
+        // Fungsi untuk memulai scanner
+        async function startScanner() {
+            try {
+                showStatus('Meminta akses kamera...', 'info');
+                
+                const video = document.getElementById('video');
+                const scannerContainer = document.getElementById('scannerContainer');
+                
+                scanner = new QrScanner(video, result => {
+                    showStatus('✅ QR Code berhasil dipindai!', 'success');
+                    showResult(result.data);
+                }, {
+                    preferredCamera: currentCamera,
+                    highlightScanRegion: true,
+                    highlightCodeOutline: true,
+                });
+
+                await scanner.start();
+                
+                scannerContainer.style.display = 'block';
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('switchBtn').style.display = 'inline-block';
+                
+                isScanning = true;
+                showStatus('📸 Scanner aktif - Arahkan kamera ke QR Code', 'info');
+                
+            } catch (error) {
+                console.error('Error starting scanner:', error);
+                showStatus('❌ Gagal mengakses kamera. Pastikan browser memiliki izin kamera.', 'error');
+            }
+        }
+
+        // Fungsi untuk menghentikan scanner
+        function stopScanner() {
+            if (scanner) {
+                scanner.stop();
+                scanner.destroy();
+                scanner = null;
+            }
+            
+            document.getElementById('scannerContainer').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('switchBtn').style.display = 'none';
+            
+            isScanning = false;
+            showStatus('Scanner dihentikan', 'info');
+        }
+
+        // Fungsi untuk mengganti kamera
+        async function switchCamera() {
+            if (!scanner) return;
+            
+            currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+            
+            try {
+                await scanner.setCamera(currentCamera);
+                showStatus(`Kamera diganti ke ${currentCamera === 'environment' ? 'belakang' : 'depan'}`, 'info');
+            } catch (error) {
+                console.error('Error switching camera:', error);
+                showStatus('Gagal mengganti kamera', 'error');
+            }
+        }
+
+        // Fungsi untuk scan dari file
+        async function scanFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                showStatus('Memproses gambar...', 'info');
+                
+                const result = await QrScanner.scanImage(file);
+                showStatus('✅ QR Code berhasil dipindai dari gambar!', 'success');
+                showResult(result);
+                
+            } catch (error) {
+                console.error('Error scanning from file:', error);
+                showStatus('❌ Tidak dapat menemukan QR Code dalam gambar', 'error');
+            }
+            
+            // Reset input file
+            event.target.value = '';
+        }
+
+        // Fungsi untuk mengecek apakah QR code adalah QRIS
+        function isQRIS(data) {
+            // QRIS dimulai dengan format EMV QR Code
+            return data.startsWith('00020') || data.includes('ID.CO.QRIS');
+        }
+
+        // Fungsi untuk parsing data QRIS
+        function parseQRIS(data) {
+            const qrisInfo = document.getElementById('qrisInfo');
+            let info = '<div class="result-title">💳 Informasi QRIS:</div>';
+            
+            try {
+                // Parse basic QRIS fields
+                const merchantName = extractQRISField(data, '59');
+                const merchantCity = extractQRISField(data, '60');
+                const amount = extractQRISField(data, '54');
+                const currency = extractQRISField(data, '53');
+                
+                if (merchantName) {
+                    info += `<div class="qris-field">
+                        <span class="qris-label">Nama Merchant:</span>
+                        <span class="qris-value">${merchantName}</span>
+                    </div>`;
+                }
+                
+                if (merchantCity) {
+                    info += `<div class="qris-field">
+                        <span class="qris-label">Kota:</span>
+                        <span class="qris-value">${merchantCity}</span>
+                    </div>`;
+                }
+                
+                if (amount) {
+                    info += `<div class="qris-field">
+                        <span class="qris-label">Nominal:</span>
+                        <span class="qris-value">Rp ${amount}</span>
+                    </div>`;
+                } else {
+                    info += `<div class="qris-field">
+                        <span class="qris-label">Tipe:</span>
+                        <span class="qris-value">Dynamic QRIS (nominal fleksibel)</span>
+                    </div>`;
+                }
+                
+                qrisInfo.innerHTML = info;
+                qrisInfo.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error parsing QRIS:', error);
+                qrisInfo.innerHTML = '<div class="result-title">💳 QRIS terdeteksi (format kompleks)</div>';
+                qrisInfo.style.display = 'block';
+            }
+        }
+
+        // Fungsi helper untuk extract field dari QRIS
+        function extractQRISField(data, fieldId) {
+            const pattern = new RegExp(fieldId + '(\\d{2})([^\\d]{0,})');
+            const match = data.match(pattern);
+            
+            if (match) {
+                const length = parseInt(match[1]);
+                const startIndex = data.indexOf(match[0]) + match[0].length - match[2].length;
+                return data.substr(startIndex, length);
+            }
+            
+            return null;
+        }
+
+        // Cek dukungan kamera saat halaman dimuat
+        window.addEventListener('load', () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showStatus('❌ Browser tidak mendukung akses kamera', 'error');
+                document.getElementById('startBtn').disabled = true;
+            } else {
+                showStatus('📱 Siap untuk memindai QR Code dan QRIS', 'success');
+            }
+        });
+
+        // Cleanup saat halaman ditutup
+        window.addEventListener('beforeunload', () => {
+            if (scanner) {
+                scanner.stop();
+                scanner.destroy();
+            }
+        });
+    </script>
+</body>
+</html>
