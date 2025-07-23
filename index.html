@@ -196,6 +196,59 @@
             font-family: 'Courier New', monospace;
         }
 
+        .url-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .action-btn {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .action-btn.copy {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            box-shadow: 0 2px 10px rgba(0, 123, 255, 0.3);
+        }
+
+        .action-btn.copy:hover {
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
+        }
+
+        .copied-feedback {
+            background: #d4edda;
+            color: #155724;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            display: none;
+            animation: fadeInOut 2s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
         .file-input-container {
             margin: 20px 0;
             position: relative;
@@ -269,6 +322,18 @@
                 <span>📋 Hasil Scan:</span>
             </div>
             <div class="result-content" id="resultContent"></div>
+            <div id="urlActions" class="url-actions" style="display: none;">
+                <button class="action-btn copy" onclick="copyToClipboard()">
+                    📋 Salin URL
+                </button>
+                <button class="action-btn copy" onclick="copyDomain()">
+                    🌐 Salin Domain
+                </button>
+                <button class="action-btn" onclick="openUrl()">
+                    🔗 Buka Link
+                </button>
+                <div id="copiedFeedback" class="copied-feedback">Berhasil disalin!</div>
+            </div>
             <div id="qrisInfo" class="qris-info" style="display: none;"></div>
         </div>
     </div>
@@ -285,21 +350,137 @@
             statusEl.className = `status ${type}`;
         }
 
+        // Global variable untuk menyimpan URL yang terdeteksi
+        let currentUrl = '';
+
         // Fungsi untuk menampilkan hasil
         function showResult(result) {
             const resultContainer = document.getElementById('resultContainer');
             const resultContent = document.getElementById('resultContent');
             const qrisInfo = document.getElementById('qrisInfo');
+            const urlActions = document.getElementById('urlActions');
             
             resultContent.textContent = result;
             resultContainer.style.display = 'block';
             
-            // Cek apakah ini QRIS
-            if (isQRIS(result)) {
-                parseQRIS(result);
-            } else {
+            // Reset currentUrl
+            currentUrl = '';
+            
+            // Cek apakah ini URL
+            if (isValidUrl(result)) {
+                currentUrl = result;
+                urlActions.style.display = 'flex';
                 qrisInfo.style.display = 'none';
             }
+            // Cek apakah ini QRIS
+            else if (isQRIS(result)) {
+                parseQRIS(result);
+                urlActions.style.display = 'none';
+            } else {
+                qrisInfo.style.display = 'none';
+                urlActions.style.display = 'none';
+            }
+        }
+
+        // Fungsi untuk mengecek apakah string adalah URL valid
+        function isValidUrl(string) {
+            try {
+                const url = new URL(string);
+                return url.protocol === 'http:' || url.protocol === 'https:';
+            } catch (_) {
+                // Coba dengan https:// jika tidak ada protocol
+                try {
+                    const url = new URL('https://' + string);
+                    return string.includes('.') && !string.includes(' ');
+                } catch (_) {
+                    return false;
+                }
+            }
+        }
+
+        // Fungsi untuk menyalin URL ke clipboard
+        async function copyToClipboard() {
+            if (!currentUrl) return;
+            
+            try {
+                await navigator.clipboard.writeText(currentUrl);
+                showCopiedFeedback('URL berhasil disalin!');
+            } catch (err) {
+                // Fallback untuk browser yang tidak mendukung clipboard API
+                fallbackCopyTextToClipboard(currentUrl);
+                showCopiedFeedback('URL berhasil disalin!');
+            }
+        }
+
+        // Fungsi untuk menyalin domain ke clipboard
+        async function copyDomain() {
+            if (!currentUrl) return;
+            
+            try {
+                let url = currentUrl;
+                // Tambahkan https:// jika tidak ada protocol
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                
+                const urlObj = new URL(url);
+                const domain = urlObj.hostname;
+                
+                await navigator.clipboard.writeText(domain);
+                showCopiedFeedback(`Domain "${domain}" berhasil disalin!`);
+            } catch (err) {
+                // Fallback manual parsing
+                let domain = currentUrl.replace(/^https?:\/\//, '').split('/')[0];
+                fallbackCopyTextToClipboard(domain);
+                showCopiedFeedback(`Domain "${domain}" berhasil disalin!`);
+            }
+        }
+
+        // Fungsi untuk membuka URL
+        function openUrl() {
+            if (!currentUrl) return;
+            
+            let url = currentUrl;
+            // Tambahkan https:// jika tidak ada protocol
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+            }
+            
+            window.open(url, '_blank');
+        }
+
+        // Fungsi fallback untuk copy text (untuk browser lama)
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Hindari scrolling ke bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        // Fungsi untuk menampilkan feedback berhasil copy
+        function showCopiedFeedback(message) {
+            const feedback = document.getElementById('copiedFeedback');
+            feedback.textContent = message;
+            feedback.style.display = 'block';
+            
+            setTimeout(() => {
+                feedback.style.display = 'none';
+            }, 2000);
         }
 
         // Fungsi untuk memulai scanner
